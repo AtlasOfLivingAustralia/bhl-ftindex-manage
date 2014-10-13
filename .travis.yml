@@ -8,19 +8,31 @@ before_install:
 - rm -rf ~/.gvm
 - curl -s get.gvmtool.net > ~/install_gvm.sh
 - chmod 775 ~/install_gvm.sh
-- ~/install_gvm.sh
+- "~/install_gvm.sh"
 - echo "gvm_auto_answer=true" > ~/.gvm/etc/config
 - source ~/.gvm/bin/gvm-init.sh
-- GRAILS_VERSION=`grep '^app\.grails\.version=' ./application.properties | sed -e
-  's/^app\.grails\.version=//g'`
+- GRAILS_VERSION=`grep '^\s*app.grails.version' application.properties | sed -e 's/^\s*app\.grails\.version=//g'
+  | tr -d "\r"`
+- echo "GRAILS_VERSION:$GRAILS_VERSION"
 - gvm install grails $GRAILS_VERSION || true
 before_script:
-- mkdir -p ~/.grails; wget -q -O ~/.grails/settings.groovy https://raw.githubusercontent.com/AtlasOfLivingAustralia/travis-build-configuration/master/travis_grails_settings_old.groovy
-- MAVEN_REPO="ala-repo-snapshot"; grep '^app\.version=' ./application.properties |
-  grep -q "\-SNAPSHOT"; if [ "$?" = "1" ]; then MAVEN_REPO="ala-repo-release"; fi;
-script: grails clean && grails refresh-dependencies --non-interactive && grails prod
-  war --non-interactive && grails prod maven-deploy --repository=$MAVEN_REPO --non-interactive
+- GRAILS_VERSION_NUMBER=`echo $GRAILS_VERSION | sed -e 's/\.[0-9]*$//g' -e 's/\.//g'`
+- echo "GRAILS_VERSION_NUMBER:$GRAILS_VERSION_NUMBER"
+- GRAILS_SETTINGS_FILE="travis_grails_settings_new.groovy"
+- if [ "$GRAILS_VERSION_NUMBER" -lt "23" ]; then GRAILS_SETTINGS_FILE="travis_grails_settings_old.groovy";
+  fi;
+- echo "GRAILS_SETTINGS_FILE:$GRAILS_SETTINGS_FILE"
+- mkdir -p ~/.grails; wget -q -O ~/.grails/settings.groovy https://raw.githubusercontent.com/AtlasOfLivingAustralia/travis-build-configuration/master/$GRAILS_SETTINGS_FILE
+- MAVEN_REPO="ala-repo-snapshot"
+- grep '^\s*app\.version=' ./application.properties | grep -q "\-SNAPSHOT"; if [ "$?"
+  = "1" ]; then MAVEN_REPO="ala-repo-release"; fi;
+- echo "MAVEN_REPO:$MAVEN_REPO"
+script:
+- grails clean && grails refresh-dependencies --non-interactive && grails prod war
+  --non-interactive && grails prod maven-install --non-interactive
+after_success: '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && grails prod maven-deploy
+  --repository=$MAVEN_REPO --non-interactive'
 env:
   global:
-  - secure: FrCxiUHz0eLk1Wm8DN4NVpxWDMtsTqO3UZhpksjtGCyQgbhcXJSmq2G4ARxGqR9V/fSbgOZAgCVw64YQFw7qaDDbjAoiVJGz9nlklNvj/puhR547KH10NZcNLf5rczQ81n55s0b+GOXMifmPSch5KdPfzP/v4Jf2kPH2dM9oqKQ=
-  - secure: N1CUGRRIYf5fQJrxkAJgEhWxTzd9Usm3Uv7XVoCQZpGwYM9ZBcmMAxwjePDEq8Bt7FUc4UFrwCFPya5f9j95GNlw7DfA7Cemamnenm+nX0MxD4/fxx7F7SAHp27riwPssZdaJsaZlvH8hTsGogCHmOf/gs6/g9qTEjYCKbheGeY=
+  - secure: JndZpT6pex3bEBjkhThOoP9Bi2ycVhlm+W+IW7W/4g3eRJ1EN6VogSISJxiBZZw3znsrk3uuBuNqqa/sPG8cI7Mfnx/ftUSEKT9gO9E8WftUtTEce1O3+NQ/xroOskJPyptQVU5cUxBLMxHZb4J6PQpPKDy9d4uQsxq/dse3WKs=
+  - secure: Z7FQe6WBq7ya+y+fCATzFu8rHV3FP71G8lX2CdhEcxT3R/H52eRKXcXWfLrZWbn6E9JQhEaegk8su+VjAi8LvFSQ45XVluE936zEg+rlbBudma6Njl8CKsXzH4zJ66ii+dbrJ6f3WoDa5rc/TdxatWvvqOaTEhjdGwPKzwMf5QY=
